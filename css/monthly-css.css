@@ -1,0 +1,42 @@
+#xx {
+	text-decoration:none;
+	color:#000;
+	background-color:#ddd;
+	border:1px solid #ccc;
+	padding:8px;
+}
+
+select {
+	width: 100%;
+}
+
+tr.hover {
+	background-color: grey;
+	color: white;
+}
+
+svg {
+	border: 1px solid black;
+}
+
+svg text.title {
+	text-anchor: middle;
+	text-align: center;
+	font-size: 1.2em;
+}
+
+path.chartLine {
+	fill: none;
+	stroke-width: 1.5px;
+	stroke: blue;
+}
+
+td:nth-child(n+2):nth-child(-n+8) {
+	text-align: right;
+}
+
+
+.overlay {
+	fill: none;
+	pointer-events: all;
+}

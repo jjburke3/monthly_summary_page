@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Monthly Meeting</title>
+	<!-- jQuery reference -->
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+	<!-- d3.js reference.  I use older v3 because map functions changed between versions. -->
+	<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+	<!-- bootstrap reference -->
+	<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+	<!-- google maps api reference -->
+	<script src="//maps.google.com/maps/api/js?key=AIzaSyAEzPa6JQe9jpdO1XY3oocY8a3GtMtvdv0"></script>
+	<!-- jQuery tablesorter javascript reference -->
+	<script type="text/javascript" src="javascript/jquery.tablesorter.js"></script> 
+	<!-- page specific css sytling -->
+	<link rel="stylesheet" type="text/css" href="css/call_plan.css">
+	<style>
+		/*make selects width take up all of containing div*/
+		select {
+			width: 100%;
+		}
+		/* this will apply to table cells with numbers */
+		td.align-right {
+			text-align: right;
+		}
+		/* alter row if moused over */
+		tbody tr:hover {
+			background-color : grey;
+			color: white;
+		}
+		
+		#bar-graph {
+			border: 1px solid black;
+		} 
+		
+		svg text.title {
+			text-anchor: middle;
+			text-align: center;
+			font-size: 1.2em;
+		}
+		
+		.axis path,
+		.axis line {
+		  fill: none;
+		  stroke: #000;
+		  shape-rendering: crispEdges;
+		}
+
+		.axis text {
+		  font: 10px sans-serif;
+		}
+		
+		.agentMetrics {
+			height: auto;
+			width: auto;
+			padding: 10px;
+			padding-left: 25px;
+			position: absolute;
+			border: 1px solid black;
+			background-color: white;
+		}
+		
+		.close {
+			float:right;
+			display:inline-block;
+			padding:2px 5px;
+			background:#ccc;
+		}
+
+		.close:hover {
+				float:right;
+				display:inline-block;
+				padding:2px 5px;
+				background:#ccc;
+			color:#fff;
+			}
+		
+	</style>
+</head>
+<body>
+	<div class="container-fluid">
+		<div class="row">
+			<!-- these two headers will have text in the script -->
+			<div class="col-sm-10">
+				<h3 id="title-1"></h3>
+				<br>
+				<h4 id="title-2"></h4>
+			</div>
+			<!-- this div contains all selects in top right corner -->
+			<div class="col-sm-2">
+				<select id = "select-ranking" class="main-select">
+					<option value="" disabled>Ranking By</option>
+					<option value="premium">Largest Premium</option>
+					<option value="worst_perform">Worst Loss Ratio</option>
+					<option value="best_perform">Best Loss Ratio</option>
+					<option value="grow">Highest Growing</option>
+					<option value="shrink">Highest Shrinking</option>
+					<option value="high_hit_ratio">Highest Hit Ratio</option>
+					<option value="low_hit_ratio">Lowest Hit Ratio</option>
+				</select>
+				<select id = "select-type" class="main-select">
+					<option value="" disabled>Grouping By</option>
+					<option value="ZIP">Zips</option>
+					<option value="AGENT">Agents</option>
+					<option value="COUNTY">County</option>
+					<option value="TERRITORY">Territory</option>
+				</select>
+				<select id = "select-state" class="main-select">
+					<option value="" disabled>State</option>
+					<option value="FL" selected=TRUE>Florida</option>
+					<option value="TX">Texas</option>
+				</select>
+				<select id = "select-onlevel" class="main-select">
+					<option value="" disabled>Premium Type</option>
+					<option value="NO" selected=TRUE>Actual Premium</option>
+					<option value="ON">Onlevel Premium</option>
+				</select>
+				<select id = "select-program" class="main-select">
+					<option value="" disabled>Program</option>
+					<option value="Total">All Programs</option>
+					<option value="WIN">WIN</option>
+					<option value="SEL">SEL</option>
+					<option value="OPT">OPT</option>
+					<option value="ICN">ICN</option>
+				</select>
+				<select id = "select-cov" class="main-select">
+					<option value="" disabled>Coverage</option>
+					<option value="ALL">All</option>
+					<option value="PIP">PIP</option>
+					<option value="PD">PD</option>
+					<option value="BI">BI</option>
+					<option value="CMP">CMP</option>
+					<option value="COL">COL</option>
+				</select>
+				<select id = "select-clutch" class="main-select">
+					<option value="" disabled>Clutch/Non-Clutch</option>
+					<option value="ALL">All</option>
+					<option value="NON">Non-Clutch</option>
+					<option value="CLUTCH">Clutch</option>
+					<option value="ONLINE">Online</option>
+					<option value="OFFLINE">Offline</option>
+					<option value="LEADS">Leads</option>
+					<option value="NATURAL">Natural</option>
+				</select>
+				<select id = "select-renewal" class="main-select">
+					<option value="" disabled>New or Renewal</option>
+					<option value="%">All</option>
+					<option value="NB">New Business</option>
+					<option value="RN">Renewal</option>
+				</select>
+				<!-- this select will be filled from a table in the database with all possible options -->
+				<select id = 'select-range' class="main-select">
+					<option value="" disabled class="permanent">Date Range</option>
+					<option value="" selected=TRUE class="permanent">Current</option>
+				</select>
+				<select id="select-results" class="main-select">
+					<option value="" disabled>Results Displayed</option>
+					<option value=5>Top 5 Results</option>
+					<option value=10 selected=TRUE>Top 10 Results</option>
+					<option value=25>Top 25 Results</option>
+				</select>
+				<select id="select-prem" class="main-select">
+					<option value="" disabled>Minimum Premium Amount</option>
+					<option value=0>$0 Min EP</option>
+					<option value=10000 selected=TRUE>$10,000 Min Earned Premium</option>
+					<option value=25000>$25,000 Min Earned Premium</option>
+					<option value=50000>$50,000 Min Earned Premium</option>
+					<option value=75000>$75,000 Min Earned Premium</option>
+					<option value=100000>$100,000 Min Earned Premium</option>
+				</select>
+			</div>
+		</div>
+		<br>
+		<div class="row">
+			<!-- top table with metrics -->
+			<div id = "table-span" class="col-sm-12">
+				<table id="myTable" class="tablesorter table-bordered" width="100%"> 
+					<thead id="thead-1"> 
+					
+					</thead> 
+					<tbody id ="tbody-1"> 
+					
+					</tbody> 
+				</table> 
+			</div>
+		</div>
+		<br>
+		<div class = "row">
+			<!-- middle table with rankings -->
+			<div id = "table2-div" class="col-sm-8">
+				<table id="myTable2" class="tablesorter table-bordered" width="100%"> 
+					<thead id="thead-2"> 
+					
+					</thead> 
+					<tbody id ="tbody-2"> 
+					
+					</tbody> 
+				</table> 
+			</div>
+			<!-- svg containing google map -->
+			<div id = "map-div" class="col-sm-4">
+				<div id="map" class = "container-fluid" style="height: 100%;"></div>
+				<div id="tooltip" class="hidden">
+					<p><span id="value">100</span></p>
+				</div>
+			</div>
+		</div>
+		<br>
+		<div class = "row">
+			<!-- bottom graph with ranking bars -->
+			<div class="col-sm-11">
+				<svg id="bar-graph" width = "100%">
+				</svg>
+			</div>
+			<div class="col-sm-1">
+				<!-- bottom graph option selector -->
+				<select id = "select-ranking2">
+					<option value="premium">Largest Premium</option>
+					<option value="loss_ratio">Worst Loss Ratio</option>
+					<option value="grow">Growth</option>
+					<option value="hit_ratio">Hit Ratio</option>
+					<option value="p_premium">Prior Period Largest Premium</option>
+					<option value="p_loss_ratio">Prior Period Worst Loss Ratio</option>
+					<option value="p_grow">Prior Period Growth</option>
+					<option value="p_hit_ratio">Prior Period Hit Ratio</option>
+				</select>
+			</div>
+		</div>
+	</div>
+	<!-- severities are stored in json format in this file -->
+	<script src="javascript/severities.js"></script>
+	<script>
+	var data2;
+	// severities used are displayed in console
+	console.log(severities);
+	// all possible programs for each state
+	var programs = {'FL' : [
+		{'value': '', 'label': 'Program'},
+		{'value': 'Total', 'label': 'All Programs'},
+		{'value': 'WIN', 'label': 'WIN'},
+		{'value': 'SEL', 'label': 'SEL'},
+		{'value': 'OPT', 'label': 'OPT'},
+		{'value': 'ICN', 'label': 'ICN'}],
+		'TX' : [
+		{'value': '', 'label': 'Program'},
+		{'value': 'Total', 'label': 'All Programs'},
+		{'value': 'AL', 'label': 'Apex-Limited'},
+		{'value': 'AS', 'label': 'Apex-Standard'},
+		{'value': 'EL', 'label': 'Edge-Limited'},
+		{'value': 'ES', 'label': 'Edge-Standard'},
+		{'value': 'EV', 'label': 'Envoy'}]};
+		// start script once html objects have loaded.
+		$(document).ready(function() 
+			{ 
+			// size objects based on size of window
+			d3.select("#map-div").style("height", Math.round(($(window).height())*(1/2)) + "px");
+			d3.select("#bar-graph").style("height", Math.round(($(window).height())*(3/10)) + "px");	
+			
+			// re-run data anytime one of the main selectors has been changed
+			d3.selectAll(".main-select").on("change",run_data);
+			// run data on page load
+			run_data();
+			
+			
+			function run_data() {
+			// set select variables based on selected options
+			var stateSelect = d3.select("#select-state").property("value");
+				// populate range select with data pulled from php connection
+				var rangeJSON = d3.json("php/table_names.php?state="+stateSelect, function(error, data) {
+					var rangeOptions = d3.select("#select-range").selectAll("option.temporary")
+						.data(data);
+					rangeOptions
+						.attr("class","temporary")
+						.attr("value", function(d) {return d.TABLE_VALUE;})
+						.text(function(d) {return d.TABLE_TEXT;});
+					rangeOptions
+						.enter()
+						.append("option")
+						.attr("class","temporary")
+						.attr("value", function(d) {return d.TABLE_VALUE;})
+						.text(function(d) {return d.TABLE_TEXT;});
+					rangeOptions.exit().remove();
+				});	
+			var dateRangeSelect = d3.select("#select-range").property("value");
+			var typeSelect = d3.select("#select-type").property("value");
+			var renewSelect = d3.select("#select-renewal").property("value");
+			// populate program options based on state selected
+			var programOptions = d3.select("#select-program").selectAll("option")
+				.data(programs[stateSelect]);
+				
+			programOptions
+				.attr("value",function(d) {return d.value;})
+				.text(function(d) {return d.label;});
+				
+			programOptions
+				.enter().append("option")
+				.attr("value",function(d) {return d.value;})
+				.text(function(d) {return d.label;});
+				
+			programOptions.exit().remove();
+			// renewal not used for ranges before 3/31/2017; column not included in data
+			if(dateRangeSelect.substring(1,9)>= 20170331 || dateRangeSelect == "")
+			{
+				d3.select("#select-renewal").property("disabled",false).style("opacity",1);
+			} else {
+				d3.select("#select-renewal").property("disabled",true).style("opacity",.5).property("value","%");
+			}
+			// clutch, onvel, and territory not available for texas data
+			if(stateSelect == "TX")
+			{
+				d3.select("#select-onlevel").property("disabled",true).style("opacity",.5).property("value","NO");
+				d3.select("#select-clutch").property("disabled",true).style("opacity",.5).property("value","ALL");
+				d3.select("#select-type").property("value",typeSelect == "TERRITORY"?"ZIP":typeSelect);
+				$("#select-type option[value='TERRITORY']").attr("disabled","disabled");
+			}
+			else if(dateRangeSelect == "_20160930")
+			{	// program and onlevel not available for 9/30/2016 version of data
+				d3.select("#select-program").property("disabled",false).style("opacity",1);
+				d3.select("#select-onlevel").property("disabled",true).style("opacity",.5).property("value","NO");
+				$("#select-type option[value='TERRITORY']").attr("disabled",false);
+			}
+			else
+			{
+				d3.select("#select-program").property("disabled",false).style("opacity",1);
+				d3.select("#select-onlevel").property("disabled",false).style("opacity",1);
+				d3.select("#select-clutch").property("disabled",false).style("opacity",1);
+				$("#select-type option[value='TERRITORY']").attr("disabled",false);
+			}
+			
+			// construct string out of selections to pass to php file
+			var php_string = "?results="+d3.select("#select-results").property("value")+
+			"&type="+d3.select("#select-type").property("value")+
+			"&state="+d3.select("#select-state").property("value")+
+			"&ranking="+d3.select("#select-ranking").property("value")+
+			"&range="+d3.select("#select-range").property("value")+
+			"&program="+d3.select("#select-program").property("value")+
+			"&pip="+severities[d3.select("#select-state").property("value")].pip+
+			"&pd="+severities[d3.select("#select-state").property("value")].pd+
+			"&bi="+severities[d3.select("#select-state").property("value")].bi+
+			"&cmp="+severities[d3.select("#select-state").property("value")].cmp+
+			"&col="+severities[d3.select("#select-state").property("value")].col+
+			"&ranking2="+d3.select("#select-ranking2").property("value")+
+			"&clutch="+d3.select("#select-clutch").property("value")+
+			"&minprem="+d3.select("#select-prem").property("value")+
+			"&cov="+d3.select("#select-cov").property("value")+
+			"&onlevel="+d3.select("#select-onlevel").property("value")+
+			"&renew="+renewSelect;
+			// translate options into text displayed in titles
+			var titles = {"premium" : "Largest Premium", "worst_perform" : "Highest Loss Ratio",
+				"best_perform" : "Lowest Loss Ratio", "grow" : "Highest Growing", "shrink" : "Highest Shrinking",
+				"high_hit_ratio" : "Highest Hit Ratio", "low_hit_ratio" : "Lowest Hit Ratio"};
+			var titles3 = {"ZIP" : "Zip Code", "AGENT" : "Agent Number", "COUNTY" : "County", "TERRITORY" : "Territory"};
+			// get proper date range for title based on most recent data date in table
+			var titleJSON = d3.json("php/title_range.php?range="+d3.select("#select-range").property("value"),function(error, data) {
+				d3.select("#title-2").text(data[0].TITLE_LABLE);
+			});
+			
+			d3.select("#title-1").text(titles[d3.select("#select-ranking").node().value] + " " +
+				titles3[d3.select("#select-type").node().value] + " - " + d3.select("#select-program").node().value);
+			// output to console sample php address for local environment development
+			console.log("localhost/product/php/pricing_meeting_pages.php"+php_string+"&page=main");
+			// remove all rows in tables
+			d3.selectAll("tr").remove();
+			// php connections for first table displaying metrics
+			var d3json = d3.json("php/pricing_meeting_pages.php"+php_string+"&page=main", function(error, data) {
+				// append header to table; make each cell contain name of column from query using keys of data
+				var thead = d3.select("#thead-1").append("tr").selectAll("th")
+					.data(d3.keys(data[0]))
+					.enter().append("th").text(function(d) {return d})
+						.attr("text",function(d) {return d});
+				// append rows to body for each row of data
+				var tr = d3.select("#tbody-1").selectAll("tr")
+					.data(data).enter().append("tr")
+						.attr("class",function(d) {return "hover-" + d['GROUPING'].split(' ').join('-').split('.').join('');}) // class of row will determine what on other charts/tables is highlighted on mouseover
+						.on("mousemove",function(d) {
+							// get class of this object
+							var classes = d3.select(this).attr("class");
+							d3.selectAll(".agent.marker").attr("r",4.5);// make any agent circles on map smaller
+							d3.selectAll(".path").attr("fill-opacity", .2).attr("stroke-opacity",.5).attr("stroke-width","1px"); // make outlines of zip/county/territory shapes on map lighter and thinner borders
+							d3.selectAll(".path." + classes).attr("fill-opacity",.7).attr("stroke-opacity",1).attr("stroke-width","5px");// make outlines of zip/county/territory shapes on map matching class darker and thicker borders
+							d3.selectAll(".agent.marker." + classes).attr("r",10); // make any agent circles on map matching class larger
+							d3.selectAll("tr").style("background-color","white").style("color","black"); // set formatting of all row to normal
+							d3.selectAll("tr." + classes).style("background-color","grey").style("color","white"); // change formatting of rows matching class
+							var selectedBar = d3.select(".bars."+classes); // select bar on bottom chart matching class
+							if($(".bars." + classes)[0]) { // if any bar matches
+							d3.selectAll(".tooltip2").remove(); // remove any id objects on chart
+							// create a square 20 px tall and width
+							d3.select("#bar-chart").append("rect").attr("class","tooltip2")
+								.attr("height","20px").attr("width","20px");
+								
+							var selectedBar = d3.select(".bars."+classes);
+							
+							// create a triangle with a point at the top of the bar matching the scrollover class
+							d3.select("#bar-chart").append("path")
+								.attr("class","tooltip2")
+								.attr("d","M " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) + 
+								" " + (selectedBar.attr("y")) +
+								"L " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2 - 5) + " " +
+								((selectedBar.attr("y")) - 10) + " " + 
+								"L " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2 + 5) + " " +
+								((selectedBar.attr("y")) - 10) + " " +
+								"L " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) + 
+								" " + (selectedBar.attr("y")))
+								.attr("stroke","black")
+								.attr("fill","black");
+							// move created square to top of created triangle
+							toolQ = d3.select("rect.tooltip2")
+								.attr("x",((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) - 10)
+								.attr("y",(selectedBar.attr("y")) - 30)
+								.attr("fill","black")
+								.style("stroke-width","1px")
+								.style("stroke","black");
+							}
+							
+						})
+						.on("mouseout",function() {// when not moused over a row anymore
+							// set all agent circles make to normal
+							d3.selectAll(".agent.marker").attr("r",4.5);
+							// set all rows make to normal formatting
+							d3.selectAll("tr").style("background-color","white").style("color","black");
+							// set all zip/county/territory outlines back to normal formatting
+							d3.selectAll(".path").attr("fill-opacity", .4).attr("stroke-opacity",1).attr("stroke-width","3px");
+							// remove square and triangle identifiers on bottom bar chart
+							d3.selectAll(".tooltip2").remove();
+								
+						})
+						.on("click",function() { // create pop up for agent information
+							if(d3.select("#select-type").property("value") == "AGENT" && d3.select("#select-state").property("value") == "FL")
+							{	// get agent number of selected row if displaying florida agent metrics
+								var agentNumber = d3.select(this).attr("class").split("-")[1];
+								// delete any existing pop-up for agents
+								d3.selectAll(".agentMetrics").remove();
+								// create new pop-up for agent metrics, and place it with top left corner on mouse
+								var popUpDiv = d3.select("body").append("div")
+									.attr("class","agentMetrics")
+									.style("top",d3.min([window.innerHeight - d3.select(this).style("height").slice(0,-2) - 50,d3.event.pageY]) + "px")
+									.style("left",d3.min([window.innerWidth - 300,d3.event.pageX]) + "px")
+									.text("Agent Number: " + agentNumber);
+									// add an x in corner to close pop-up
+									popUpDiv.append("span")
+										.attr("class","close")
+										.text("x")
+										.on("click",function() {
+											d3.selectAll(".agentMetrics").remove();
+										})
+										;
+									// append table to pop-up for metrics
+									var popUpTable = popUpDiv.append("table")
+										.attr("class","table-bordered");
+										var popUpHead = popUpTable.append("thead").append("tr");
+										var popUpBody = popUpTable.append("tbody");
+										// pull agent data from php connection using agent number as condition
+									var popUpJson = d3.json("php/agentMetrics.php?agentNumber="+agentNumber, function(error,metricData) {
+										var metrics = [];
+										for(var i = 0; i < d3.keys(metricData[0]).length; i++) {
+										metrics.push([d3.keys(metricData[0])[i],d3.values(metricData[0])[i],d3.values(metricData[1])[i]]);
+										}
+										popUpHead.append("th").text("Metric");
+										popUpHead.append("th").text("Metric Number");
+										popUpHead.append("th").text("Agent Average");
+										// append data to pop-up table
+										var popUpTr = popUpBody.selectAll("tr")
+											.data(metrics).enter().append("tr");
+										popUpTr.append("td").text(function(d) {return d[0]});
+										popUpTr.append("td").text(function(d) {return d[1]});
+										popUpTr.append("td").text(function(d) {return d[2]});
+									});
+							} 
+						});;
+				// append values to cells in top metrics table
+				var td = tr.selectAll("#tbody-1 td")
+					.data(function(d) {return d3.values(d)})
+					.enter().append("td")
+					.text(function(d) {if (d) {return d}});
+				// get the column that has a header of Premium Growth
+				var lastPercentage = d3.selectAll("th[text='Premium Growth']").property("cellIndex");
+				// format 3rd and 5th columns in table
+				d3.selectAll("#tbody-1 td:nth-child(3), #tbody-1 td:nth-child(5)").text(function() {
+				return d3.format(",.0f")(d3.select(this).text());
+				});
+				// set according to whether agent metrics or not
+				var lastRight = typeSelect == "AGENT"?11:10;
+				
+				// align numbers to right, last column depends on agent metrics variable
+				d3.selectAll("#tbody-1 td:nth-child(n+2):nth-child(-n+" + lastRight + ")").classed("align-right",true);
+				// format 2nd column  and column after Premium Growth
+				d3.selectAll("#tbody-1 td:nth-child(2), #tbody-1 td:nth-child(" + (lastPercentage + 1) + ")").text(function() {
+				return d3.format("$,.0f")(d3.select(this).text());
+				});
+				
+				// formst 4th column
+				d3.selectAll("#tbody-1 td:nth-child(4)").text(function() {
+				return d3.format(".2%")(d3.select(this).text());
+				});
+				// format columns between 6th and column with heading of Premium Growth
+				d3.selectAll("#tbody-1 td:nth-child(n+6):nth-child(-n+" + lastPercentage + ")").text(function() {
+				return d3.format(".0%")(d3.select(this).text());
+				});
+				// format columns 2nd and 3rd after Premium Growth
+				d3.selectAll("#tbody-1 td:nth-child(" + (lastPercentage + 2) + "), #tbody-1 td:nth-child(" + (lastPercentage + 3) + ")").text(function() {
+				if(d3.select(this).text())
+				{
+				return d3.select(this).text().toLowerCase()
+												.split(' ')
+												.map(i => i[0].toUpperCase() + i.substring(1))
+												.join(' ')
+												.split('-')
+												.map(i => i[0].toUpperCase() + i.substring(1))
+												.join('-')}
+				});
+				// make table a jQuery table
+				$("#myTable").tablesorter( ); 
+				// set text of 1st header cell to formatted values
+				d3.selectAll("th:nth-child(1)").text(titles3[d3.select("#select-type").property("value")]);
+				
+				});
+				// pull data from php script for middle ranking table
+				var d3json2 = d3.json("php/pricing_meeting_pages.php"+php_string+"&page=ranks", function(error, data) {
+				var thead = d3.select("#thead-2").append("tr").selectAll("th")
+					.data(d3.keys(data[0]))
+					.enter().append("th").text(function(d) {return d});
+				// append a row for each row in data
+				var tr = d3.select("#tbody-2").selectAll("tr")
+					.data(data).enter().append("tr")
+						.attr("class",function(d) {return "hover-" + d['GROUPING'].split(' ').join('-').split('.').join('');})
+						.on("mousemove",function(d) {
+							// get class of moused over row
+							var classes = d3.select(this).attr("class");
+							// make all agent circles normal size
+							d3.selectAll(".agent.marker").attr("r",4.5);
+							// make all county/zip/county/territory outlines lighter and thinner border
+							d3.selectAll(".path").attr("fill-opacity", .2).attr("stroke-opacity",.5).attr("stroke-width","1px");
+							// make county/zip/territory outlines for matching class darker and thicker border
+							d3.selectAll(".path." + classes).attr("fill-opacity",.7).attr("stroke-opacity",1).attr("stroke-width","5px");
+							// make agent circle for matching class bigger
+							d3.selectAll(".agent.marker." + classes).attr("r",10);
+							// make all table rows normal format
+							d3.selectAll("tr").style("background-color","white").style("color","black");
+							// make all table rows with matching class highlighted format
+							d3.selectAll("tr." + classes).style("background-color","grey").style("color","white");
+							
+							
+							var selectedBar = d3.select(".bars."+classes);
+							if($(".bars." + classes)[0]) { // if bar matching class
+							// remove any existing id objects
+							d3.selectAll(".tooltip2").remove();
+							// create id square
+							d3.select("#bar-chart").append("rect").attr("class","tooltip2")
+								.attr("height","20px").attr("width","20px");
+								
+							var selectedBar = d3.select(".bars."+classes);
+							
+							// create id triangle on top of matching bar
+							d3.select("#bar-chart").append("path")
+								.attr("class","tooltip2")
+								.attr("d","M " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) + 
+								" " + (selectedBar.attr("y")) +
+								"L " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2 - 5) + " " +
+								((selectedBar.attr("y")) - 10) + " " + 
+								"L " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2 + 5) + " " +
+								((selectedBar.attr("y")) - 10) + " " +
+								"L " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) + 
+								" " + (selectedBar.attr("y")))
+								.attr("stroke","black")
+								.attr("fill","black");
+							// move square to top of triangle
+							toolQ = d3.select("rect.tooltip2")
+								.attr("x",((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) - 10)
+								.attr("y",(selectedBar.attr("y")) - 30)
+								.attr("fill","black")
+								.style("stroke-width","1px")
+								.style("stroke","black");
+							}
+						})
+						.on("mouseout",function() {
+							// on mouseout, set everyting back to normal format
+							d3.selectAll(".agent.marker").attr("r",4.5);
+							d3.selectAll("tr").style("background-color","white").style("color","black");
+							d3.selectAll(".path").attr("fill-opacity", .4).attr("stroke-opacity",1).attr("stroke-width","3px");
+							// remove square and triangle on bottom bar chart
+							d3.selectAll(".tooltip2").remove();
+								
+						});
+				// append data to all table cells in middle ranking chart
+				var td = tr.selectAll("td")
+					.data(function(d) {return d3.values(d)})
+					.enter().append("td")
+					.text(function(d) {return d});
+			
+				// make middle ranking chart into jquery table
+				$("#myTable2").tablesorter( ); 
+				// change value of first header cell to correct format
+				d3.selectAll("th:nth-child(1)").text(titles3[d3.select("#select-type").property("value")]);
+				
+				// move values in every body cell after first to be right aligned
+				d3.selectAll("#tbody-2 td:nth-child(n+2)").classed("align-right",true);
+				}
+			);
+			// create a google map object
+		var map = new google.maps.Map(d3.select("#map").node(), {
+			// centered on orlando
+			zoom: 7,
+			center: new google.maps.LatLng(28.270379, -81.585017),
+			mapTypeId: google.maps.MapTypeId.TERRAIN
+		});
+						
+				// get data for map objects from php file
+				var d3json = d3.json("php/pricing_meeting_pages.php"+php_string+"&page=map", function(error, data) {
+				// create address for geojson data if county/zip/territory info
+				var geoJsonUrl = "../geojson/";
+				var jsonString = {"FL" : "florida", "TX" : "texas", "ZIP" : "zips", "COUNTY" : "county", "TERRITORY" : "zips"};
+				if(d3.select("#select-state").property("value") == "FL")
+				{
+					var jsonName = {"zips" : "ZCTA5CE10", "county" : "NAME"};
+				}
+				else
+				{
+					var jsonName = {"zips" : "ZCTA5CE10", "county" : "NAME10"};
+				};
+				var jsonCall = jsonName[jsonString[d3.select("#select-type").property("value")]];
+				geoJsonUrl += jsonString[d3.select("#select-state").property("value")];
+				geoJsonUrl += jsonString[d3.select("#select-type").property("value")];
+				geoJsonUrl += ".json";
+				// get data from appropriate local address
+				var geoJson = d3.json(geoJsonUrl, function(error, geoJsonData) {
+					
+				  // fit the map to the boundaries of all available data points and
+				  // ONCE generate google LatLng objects to be re-used repeatedly
+				  var bounds = new google.maps.LatLngBounds();
+				  if(d3.select("#select-type").property("value") == "AGENT")
+				  {
+				  data.forEach(function(d){
+					// extend bounds of map to include each agent circle
+					bounds.extend(d.lat_lng = new google.maps.LatLng(+d.LAT, +d.LONGITUDE));
+				  });
+				  }
+				  else
+				  {
+				  // get unique zips/counties to pull out of geojson
+				  var data_array = $.map(data, function(d) {
+						// if territory, match on zip codes, otherwise match on zip/county grouping
+						if(d3.select("#select-type").property("value") == "TERRITORY")
+						{
+						return d.ZIP2;
+						}
+						else
+						{
+						return d.GROUPING;
+						}
+						});
+					geoJsonData = geoJsonData.features.filter(function(d) {
+					// filter to data pulled from sql and possessing geometry 
+					return data_array.indexOf(d.properties[jsonCall].toUpperCase()) >= 0 && d.geometry;});
+					// loop through sql data to match to geojson objects
+					for (var i = 0; i <data.length; i++) {
+						if(d3.select("#select-type").property("value") == "TERRITORY")
+						{
+						var dataLocation = data[i].ZIP2;
+						var dataTerr = data[i].GROUPING;
+						}
+						else
+						{
+						var dataLocation = data[i].GROUPING;
+						}
+						// set color from sql data
+						var dataColor = data[i].COLOR;
+						// loop through geojson data
+						for (var j = 0; j < geoJsonData.length; j++) {
+						var jsonLocation = geoJsonData[j].properties[jsonCall].toUpperCase();
+						// on each geojson object, append correct data from sql data
+						if (dataLocation == jsonLocation) {
+							if(d3.select("#select-type").property("value") == "TERRITORY")
+							{
+							if(geoJsonData[j].properties.TERR  == null)
+							{
+								geoJsonData[j].properties.TERR = dataTerr;
+							}
+							else
+							{
+								geoJsonData[j].properties.TERR += ", " + dataTerr;
+							}
+							}
+							geoJsonData[j].properties.COLOR = dataColor;
+							break;
+						}}}
+						
+					
+				  // extend bounds for paths, pushing by min and max values of x and y coordinates of object outlines
+				  
+				    var max_x, max_y, min_x, min_y;
+
+					  geoJsonData.forEach(function(d) {
+					  if(d.geometry.type == "Polygon")
+						{
+							d.lat_lng = new google.maps.LatLng(+d.geometry.coordinates[1], +d.geometry.coordinates[0]);
+						
+							max_x = d3.max([max_x,d3.max(d.geometry.coordinates[0], function(d) {return +d[0];})]);
+							min_x = d3.min([min_x,d3.min(d.geometry.coordinates[0], function(d) {return +d[0];})]);
+							max_y = d3.max([max_y,d3.max(d.geometry.coordinates[0], function(d) {return +d[1];})]);
+							min_y = d3.min([min_y,d3.min(d.geometry.coordinates[0], function(d) {return +d[1];})]);
+						}
+						else
+						{
+							d.geometry.coordinates.forEach(function(d) {
+								max_x = d3.max([max_x,d3.max(d[0], function(d) {return +d[0];})]);
+								min_x = d3.min([min_x,d3.min(d[0], function(d) {return +d[0];})]);
+								max_y = d3.max([max_y,d3.max(d[0], function(d) {return +d[1];})]);
+								min_y = d3.min([min_y,d3.min(d[0], function(d) {return +d[1];})]);
+							});
+						}
+					  });
+					  
+						bounds.extend(new google.maps.LatLng(max_y,min_x));
+						bounds.extend(new google.maps.LatLng(min_y, max_x));
+					};
+					// move map to fit bounds
+				  map.fitBounds(bounds);
+				// create overlay on map to draw objects
+				  var overlay = new google.maps.OverlayView(),
+					  r = 4.5,
+					  padding = r*3;
+				  // Add the container when the overlay is added to the map.
+				  overlay.onAdd = function() {
+					var layer = d3.select(this.getPanes().overlayMouseTarget)
+						.append("svg")
+						.attr('class','stations');
+					overlay.draw = function(){
+					  var projection = this.getProjection(),
+						  sw = projection.fromLatLngToDivPixel(bounds.getSouthWest()),
+						  ne = projection.fromLatLngToDivPixel(bounds.getNorthEast());
+					  // extend the boundaries so that markers on the edge aren't cut in half
+					  sw.x -= padding;
+					  sw.y += padding;
+					  ne.x += padding;
+					  ne.y -= padding;
+					  
+					  	var markerOverlay = this;
+						var overlayProjection = markerOverlay.getProjection();
+						// Turn the overlay projection into a d3 projection, which allows coordinates to be translated into map pixels
+							var googleMapProjection = function (coordinates) {
+								var googleCoordinates = new google.maps.LatLng(coordinates[1], coordinates[0]);
+								var pixelCoordinates = overlayProjection.fromLatLngToDivPixel(googleCoordinates);
+								return [pixelCoordinates.x-sw.x, pixelCoordinates.y-ne.y];
+							}
+						// create path variable
+						var path = d3.geo.path().projection(googleMapProjection);
+					// move overlay to correct positions on map
+					  d3.select('.stations')
+						.attr('width',(ne.x - sw.x) + 'px')
+						.attr('height',(sw.y - ne.y) + 'px')
+						.style('position','absolute')
+						.style('left',sw.x+'px')
+						.style('top',ne.y+'px');
+						
+						
+					if(d3.select("#select-type").property("value") == "AGENT")
+						{
+						// append agent circle to map
+						var marker_agent = layer.selectAll('.marker.agent')
+						.data(data)
+						.each(transform) // transform moves object if map is moved or zoomed
+					  .enter().append('circle')
+						.attr("class",function(d) {return "marker agent hover-" + d.GROUPING.split(' ').join('-').split('.').join('');})
+						.style("fill",function(d) {return d.COLOR;})
+						.attr('r',r)
+						.attr('cx',function(d) {// set circle center x position based on agent coordinates translated to map pixels
+						  d = projection.fromLatLngToDivPixel(d.lat_lng); 
+						  return d.x-sw.x;
+						})
+						.attr('cy',function(d) {// set circle center y position based on agent coordinates translated to map pixels
+						  d = projection.fromLatLngToDivPixel(d.lat_lng);
+						  return d.y-ne.y;
+						})
+						.on("mousemove",function(d) {
+							// get class of agent circle moused over
+							var classes = d3.select(this).attr("class").split(" ")[2];
+							var sel = d3.select(this);
+							var self = d.title;
+							var mouse = d3.mouse(d3.select("#map").node()).map( function(d) {return parseInt(d);});
+							// move tooltip to cursor position and unhide, make contain agent label
+							d3.select("#tooltip")
+								.style("left",mouse[0]+"px")
+								.style("top",mouse[1]+"px")
+								.classed("hidden",false)
+								.select("p").html(
+									titles3[d3.select("#select-type").property("value")] + ": " + d.GROUPING
+								);
+							// set all rows format to normal
+							d3.selectAll("tr").style("background-color","white").style("color","black");
+							// set rows with matching class to highlighted format
+							d3.selectAll("tr." + classes).style("background-color","grey").style("color","white");
+							var selectedBar = d3.select(".bars."+classes);
+							if($(".bars." + classes)[0]) { // if moused over agent circle matches a bar
+							// remove any existing id objects
+							d3.selectAll(".tooltip2").remove();
+							// create square on bar chart
+							d3.select("#bar-chart").append("rect").attr("class","tooltip2")
+								.attr("height","20").attr("width","20");
+								
+							var selectedBar = d3.select(".bars."+classes);
+							
+							// create triangle on bar chart with point on bar matching moused over object
+							d3.select("#bar-chart").append("path")
+								.attr("class","tooltip2")
+								.attr("d","M " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) + 
+								" " + (selectedBar.attr("y")) +
+								"L " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2 - 5) + " " +
+								((selectedBar.attr("y")) - 10) + " " + 
+								"L " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2 + 5) + " " +
+								((selectedBar.attr("y")) - 10) + " " +
+								"L " + 
+								((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) + 
+								" " + (selectedBar.attr("y")))
+								.attr("stroke","black")
+								.attr("fill","black");
+							// move square to top of triangle
+							toolQ = d3.select("rect.tooltip2")
+								.attr("x",((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) - 10)
+								.attr("y",(selectedBar.attr("y")) - 30)
+								.attr("fill","black")
+								.style("stroke-width","1px")
+								.style("stroke","black");
+							}
+						})
+						.on("mouseout",function() { // when no agent circle moused over any more
+							// hide tooltip
+							d3.select("#tooltip")
+								.classed("hidden",true);
+							// set all rows to normal format
+							d3.selectAll("tr").style("background-color","white").style("color","black");
+							// remove id objects on bar chart
+							d3.selectAll(".tooltip2").remove();
+								
+						});
+						}
+						else
+						{
+						// append a path for each geojson object matching a sql data row
+					layer.selectAll("path")
+						.data(geoJsonData)
+						.each(transform3) // transform changes object if map is panned or zoomed
+						.enter()
+						.append("path")
+							.attr("class",function(d) {
+							if(d3.select("#select-type").property("value") == "TERRITORY")
+							{
+								return "path hover-" + d.properties.TERR.toUpperCase().split(", ").join(" hover-").split('.').join('');
+							}
+							else
+							{
+								return "path hover-" + d.properties[jsonCall].split(' ').join('-').split('.').join('').toUpperCase();
+							}	
+							})
+							.attr("d",path) // path is a function for drawing object
+							.attr("fill",function(d) {
+							if(d3.select("#select-type").property("value") == "TERRITORY"  && d3.select("#select-program").property("value") == "Total")
+							{// if option territory, and multiple programs are displayed, set color based on program
+								var programColor = {"WIN" : "blue", "SEL" : "red", "OPT" : "green", "ICN" : "purple"};
+								if(d.properties.TERR.split("-").length > 2)
+								{	// if two programs overlap in a zip, set color to black
+									return "black";
+								}
+								else
+								{
+									return programColor[d.properties.TERR.split("-")[0]];
+								}
+							}
+							else
+							{ // if not territory or only one program, set according to color sql returns
+								return d.properties.COLOR;
+							}	
+							})
+							.attr("fill-opacity",.4) // make objects semi transparent to allow read map underneath
+							.attr("stroke",function(d) { // stroke is object outline, follows same color rules as object fill
+							if(d3.select("#select-type").property("value") == "TERRITORY"  && d3.select("#select-program").property("value") == "Total")
+							{
+								var programColor = {"WIN" : "blue", "SEL" : "red", "OPT" : "green", "ICN" : "purple"};
+								if(d.properties.TERR.split("-").length > 2)
+								{
+									return "black";
+								}
+								else
+								{
+									return programColor[d.properties.TERR.split("-")[0]];
+								}
+							}
+							
+							else
+							{
+								return d.properties.COLOR;
+							}	
+							})
+							.attr("stroke-width","3px")
+							.on("mousemove",function(d) { // when map object is moused over
+							var classes = "hover-" + d3.select(this).attr("class").split("path hover-")[1];
+							classes = classes.split(' ').join(', .');
+							if(d3.select("#select-type").property("value") == "TERRITORY")
+							{	// if territory, highlight all zips inside moused over territory
+								d3.selectAll(".path").attr("fill-opacity", .2).attr("stroke-opacity",.5).attr("stroke-width","1px");
+								d3.selectAll(".path." + classes).attr("fill-opacity",.7).attr("stroke-opacity",1).attr("stroke-width","5px");
+							}							
+							var sel = d3.select(this);
+							var self = d.title;
+							var mouse = d3.mouse(d3.select("#map").node()).map( function(d) {return parseInt(d);});
+							// display tooltip and move to cursor position
+							var tooltipHtml = d3.select("#tooltip")
+								.style("left",mouse[0]+"px")
+								.style("top",mouse[1]+"px")
+								
+								.classed("hidden",false)
+							// set tooltip text to be object name
+							if(d3.select("#select-type").property("value") == "TERRITORY")
+							{
+								tooltipHtml.select("p").html(
+									titles3[d3.select("#select-type").property("value")] + ": " + d.properties.TERR + 
+									"<br> Zip: " + d.properties[jsonCall]
+									);
+							}
+							else
+							{
+								tooltipHtml.select("p").html(
+									titles3[d3.select("#select-type").property("value")] + ": " + d.properties[jsonCall]
+									);
+							}
+							
+							// set all rows to normal format
+							d3.selectAll("tr").style("background-color","white").style("color","black");
+							// set rows with matching class to highlighted format
+							d3.selectAll("tr." + classes).style("background-color","grey").style("color","white");
+							// highlight any bars on bottom graph that match mouseover object
+							// must check for multiple matches if territory shows mulitple programs in one zip
+							classes.split(", .").forEach(function(d, i) {
+								var selectedBar = d3.select(".bars."+d);
+								if($(".bars." + d)[0]) { // if any matching bars
+								// remove any existing id objects
+								d3.selectAll(".tooltip2.number" + i).remove();
+								// create id square on bar chart
+								d3.select("#bar-chart").append("rect").attr("class","tooltip2 number" + i)
+									.attr("height","20").attr("width","20");
+									
+								var selectedBar = d3.select(".bars."+d);
+								
+								// create triangle on top of maching bar
+								d3.select("#bar-chart").append("path")
+									.attr("class","tooltip2 number" + i)
+									.attr("d","M " + 
+									((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) + 
+									" " + (selectedBar.attr("y")) +
+									"L " + 
+									((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2 - 5) + " " +
+									((selectedBar.attr("y")) - 10) + " " + 
+									"L " + 
+									((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2 + 5) + " " +
+									((selectedBar.attr("y")) - 10) + " " +
+									"L " + 
+									((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) + 
+									" " + (selectedBar.attr("y")))
+									.attr("stroke","black")
+									.attr("fill","black");
+								// move square to top of triangle
+								toolQ = d3.select("rect.tooltip2.number" + i)
+									.attr("x",((selectedBar.attr("x"))/1 + (selectedBar.attr("width"))/2) - 10)
+									.attr("y",(selectedBar.attr("y")) - 30)
+									.attr("fill","black")
+									.style("stroke-width","1px")
+									.style("stroke","black");
+								}
+							});
+						})
+						.on("mouseout",function() {
+							// hide tooltip
+							d3.select("#tooltip")
+								.classed("hidden",true);
+							// set all rows to normal format
+							d3.selectAll("tr").style("background-color","white").style("color","black");
+							// remove any id objects on bottom graph
+							d3.selectAll(".tooltip2").remove();
+							// set all objects back to normal format
+							d3.selectAll(".path").attr("fill-opacity", .4).attr("stroke-opacity",1).attr("stroke-width","3px");
+								
+						});
+						}
+					
+					// function for changing agent circles if map zooms or pans
+					  function transform(d) {
+						d = projection.fromLatLngToDivPixel(d.lat_lng);
+						return d3.select(this)
+						  .attr('cx',d.x-sw.x)
+						  .attr('cy',d.y-ne.y);
+					  }
+					  // function for redrawing map objects if map zooms or pans
+					  function transform3(d) {
+						return d3.select(this)
+						  .attr('d',path);
+					  }
+					};
+				  };
+
+				  // Bind our overlay to the map…
+				  overlay.setMap(map);
+			});
+			});
+			
+			
+			// bar chart creation	
+			var svg = d3.select("#bar-graph");
+			// remove any existing objects in bottom bar graph
+			d3.select("#bar-graph").selectAll("*").remove();
+			// set chart height and width proportional to svg size
+			var chart_height = (svg.style("height")
+				.substring(0,svg.style("height").length - 2))/1;
+				
+			var chart_width = (svg.style("width")
+				.substring(0,svg.style("width").length - 2))/1;
+			// view box allows objects to scale if container changes size, like if the window is resized
+			svg.attr("viewBox","0 0 " + chart_width + " " + chart_height)
+				.attr("preserveAspectRatio","none");
+				
+			var h = chart_height*(6.5/10), w = chart_width*(8.9/10);
+			svg.se
+			// append the bar chart title
+			svg.append("text")
+				.attr("class","title")
+				.attr("x", chart_width/2)
+				.attr("y", chart_height/15)
+				.text("TITLE");
+			
+			// g allows room for axises
+			var bar_chart = d3.select("#bar-graph").append("g")
+				.attr("id","bar-chart").attr("transform","translate(" + (chart_width*(1/15)) + "," + (chart_height*(1/5)) + ")");
+			// pull data for bar chart from php file
+			bar_json = d3.json("php/pricing_meeting_pages.php" + php_string + "&page=graph", function(error, data2) {
+				d3.select("#select-ranking2").on("change",runRankingData);
+				d3.selectAll(".bars").remove();
+				runRankingData();
+				// translate select options to bar chart attributes
+				function runRankingData() {
+					var bar_chart_match = {"premium" : {"ranking" : "EP_RANKING", "number" : "EARNED_PREMIUM", "title" : "Earned Premium"},
+						"loss_ratio" : {"ranking" : "LR_RANKING", "number" : "TOTAL", "title" : "Loss Ratio"},
+						"grow" : {"ranking" : "GROWTH_RANKING", "number" : "INCREASE", "title" : "Growth"},
+						"hit_ratio" : {"ranking" : "CONV_RANKING", "number" : "CONVERSION", "title" : "Hit Ratio"},
+						"p_premium" : {"ranking" : "P3_EP_RANKING", "number" : "Q2_EARNED_PREMIUM", "title" : "Prior Period Earned Premium"},
+						"p_loss_ratio" : {"ranking" : "P3_LR_RANKING", "number" : "Q2_TOTAL", "title" : "Prior Period Loss Ratio"},
+						"p_grow" : {"ranking" : "P3_GROWTH_RANKING", "number" : "Q2_INCREASE", "title" : "Prior Period Growth"},
+						"p_hit_ratio" : {"ranking" : "P3_CONV_RANKING", "number" : "Q2_CONVERSION", "title" : "Prior Period Hit Ratio"}};
+				
+					d3.select("svg text.title")
+						.text(titles3[d3.select("#select-type").property("value")] + " Ranking by " + 
+							bar_chart_match[d3.select("#select-ranking2").property("value")].title);
+					
+					// make sure ranking is above zero; some are not included due to small sample size
+					var data = data2.filter(function(d) {return +d[bar_chart_match[d3.select("#select-ranking2").property("value")].ranking] > 0;});
+					
+					// create y scale, from min of zero or any negative values, to max value
+					var yScale = d3.scale.linear()
+						.range([h,0])
+						.domain([
+							d3.min([0,
+							d3.min(data,function(d) {return +d[bar_chart_match[d3.select("#select-ranking2").property("value")].number];})]),
+							d3.max(data,function(d) {return +d[bar_chart_match[d3.select("#select-ranking2").property("value")].number];})]);
+					// create x scale, going from zero to count of different objects
+					var xScale = d3.scale.linear()
+						.range([0,w])
+						.domain([0,d3.max(data, function(d) {return +d[bar_chart_match[d3.select("#select-ranking2").property("value")].ranking];})]);
+						
+					var yAxis = d3.svg.axis()
+						.scale(yScale)
+						.orient("left");
+						
+					var xAxis = d3.svg.axis()
+						.scale(xScale)
+						.orient("bottom");
+						
+					d3.selectAll(".axis").remove();
+					
+					bar_chart
+						.append("g")
+						.call(yAxis)
+						.attr("class","y axis main");
+						
+					bar_chart
+						.append("g")
+						.call(xAxis)
+						.attr("class","x axis main")
+						.attr("transform","translate(0,"+h+")");
+						
+					bars = bar_chart.selectAll(".bars")
+						.data(data);
+					// change existing bars;  color is yellow if one of object displayed in tables/map, red if value is negative, or grey otherwise
+					bars.attr("class",function(d) {return "bars hover-" + d['GROUPING'].split(' ').join('-').split('.').join('');})
+							.attr("x",function(d) {return xScale(+d[bar_chart_match[d3.select("#select-ranking2").property("value")].ranking]) - xScale(.5);})
+							.attr("y",function(d) {return yScale(d3.max([+d[bar_chart_match[d3.select("#select-ranking2").property("value")].number],0]));})
+							.attr("width",xScale(1))
+							.attr("height",function(d) {return (d3.min([h,yScale(0)]) - yScale(Math.abs(+d[bar_chart_match[d3.select("#select-ranking2").property("value")].number])))})
+							.style("fill", function(d) {if(d.MAIN_RANKING == "Y") {return "yellow";}
+								else if(+d[bar_chart_match[d3.select("#select-ranking2").property("value")].number] < 0) {return "red"}
+								else {return "grey";}});
+					// append any needed new bars
+					bars.enter()
+						.append("rect")
+							.attr("class",function(d) {return "bars hover-" + d['GROUPING'].split(' ').join('-').split('.').join('');})
+							.attr("x",function(d) {return xScale(+d[bar_chart_match[d3.select("#select-ranking2").property("value")].ranking]) - xScale(.5);})
+							.attr("y",function(d) {return yScale(d3.max([+d[bar_chart_match[d3.select("#select-ranking2").property("value")].number],0]));})
+							.attr("width",xScale(1))
+							.attr("height",function(d) {return (d3.min([h,yScale(0)])  - yScale(Math.abs(+d[bar_chart_match[d3.select("#select-ranking2").property("value")].number])))})
+							.style("fill", function(d) {if(d.MAIN_RANKING == "Y") {return "yellow";}
+								else if(+d[bar_chart_match[d3.select("#select-ranking2").property("value")].number] < 0) {return "red"}
+								else {return "grey";}});
+					// remove any extraneous bars
+					bars.exit().remove();
+					
+				};
+			
+			});
+			}
+		}
+		); 
+	</script>
+</body>
+</html>
